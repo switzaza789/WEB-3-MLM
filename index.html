@@ -25,6 +25,7 @@
       --accent-emerald-glow: rgba(52, 211, 153, 0.3);
       --accent-pink: #f472b6;
       --accent-amber: #fbbf24;
+      --accent-amber-glow: rgba(251, 191, 36, 0.4);
       
       --text-primary: #f1f5f9;
       --text-secondary: #94a3b8;
@@ -981,6 +982,8 @@
                   <th>ผู้แนะนำดั้งเดิม</th>
                   <th>จำนวนตำแหน่งในผัง 1</th>
                   <th>จำนวนตำแหน่งในผัง 2</th>
+                  <th>แนะนำตรง (คน)</th>
+                  <th>รายได้แนะนำตรง (USDT)</th>
                   <th>ยอดเงินใน Wallet (USDT)</th>
                 </tr>
               </thead>
@@ -1074,7 +1077,10 @@
         sponsorId: null,
         wallet: 0,
         b1NodesCount: 0,
-        b2NodesCount: 0
+        b2NodesCount: 0,
+        directSponsorCount: 0,
+        totalSponsorEarnings: 0,
+        nextPlacementSide: 'left'
       };
       users.set(admin.id, admin);
 
@@ -1120,14 +1126,20 @@
           sponsorId: sponsorId,
           wallet: 0,
           b1NodesCount: 0,
-          b2NodesCount: 0
+          b2NodesCount: 0,
+          directSponsorCount: 0,
+          totalSponsorEarnings: 0,
+          nextPlacementSide: 'left'
         });
+        
+        const sponsorUser = users.get(sponsorId);
+        if (sponsorUser) sponsorUser.directSponsorCount = (sponsorUser.directSponsorCount || 0) + 1;
       });
       
-      // We insert them sequentially in Board 1
+      // We insert them using new logic in Board 1
       for(let userId = 2; userId <= 7; userId++) {
         const user = users.get(userId);
-        const index = board1Positions.length;
+        const index = getNextAvailableB1Index(user.sponsorId);
         const pos = {
           index: index,
           ownerId: userId,
@@ -1142,7 +1154,7 @@
           b2QueueIndex: null,
           children: []
         };
-        board1Positions.push(pos);
+        board1Positions[index] = pos;
         user.b1NodesCount++;
 
         // Add child link to parent
@@ -1192,7 +1204,8 @@
     // Financial stats counter
     function renderStats() {
       document.getElementById("statTotalUsers").textContent = users.size;
-      document.getElementById("statB1Positions").textContent = board1Positions.length - 1;
+      let validNodesCount = board1Positions.filter(p => p !== null && p !== undefined).length;
+      document.getElementById("statB1Positions").textContent = validNodesCount;
       document.getElementById("statB2Queue").textContent = board2Queue.length;
 
       // Calculate totals
@@ -1212,7 +1225,7 @@
       });
 
       // Subtract 1 extra for the root/Me position which is system-created (no entry fee paid)
-      const externalNodes = (board1Positions.length - 1) - reEntriesCount - 1;
+      const externalNodes = validNodesCount - reEntriesCount - 1;
       const totalCapitalInCents = Math.max(0, externalNodes) * PACKAGE_COST;
       
       const formattedTotalIn = (totalCapitalInCents / 100).toFixed(2);
@@ -1263,6 +1276,8 @@
           <td>${sponsorName}</td>
           <td style="font-family:monospace;">${user.b1NodesCount}</td>
           <td style="font-family:monospace;">${user.b2NodesCount}</td>
+          <td style="font-family:monospace; color:var(--accent-cyan); font-weight:600;">${user.directSponsorCount || 0}</td>
+          <td style="font-family:monospace; color:var(--accent-amber); font-weight:600;">${((user.totalSponsorEarnings || 0) / 100).toFixed(2)}</td>
           <td style="font-family:'JetBrains Mono', monospace; font-weight:600; color:var(--accent-emerald);">
             ${(user.wallet / 100).toFixed(2)} USDT
           </td>
@@ -1391,25 +1406,78 @@
         
         if (pNode && cNode && pNode.exists && cNode.exists) {
           const isCompleted = pNode.posData.completed;
+          let sponsorName = "";
+          if (cNode.posData.sponsorId) {
+             const sponsorUser = users.get(cNode.posData.sponsorId);
+             if (sponsorUser) sponsorName = sponsorUser.name;
+          }
+          
+          let isHighlight = false;
+          if (selectedB1NodeIndex !== null && board1Positions[selectedB1NodeIndex]) {
+            const selOwnerId = board1Positions[selectedB1NodeIndex].ownerId;
+            if (cNode.posData.sponsorId === selOwnerId) {
+              isHighlight = true;
+            }
+          }
+          
           renderEdges.push({
             x1: pNode.coords.x,
             y1: pNode.coords.y,
             x2: cNode.coords.x,
             y2: cNode.coords.y,
-            completed: isCompleted
+            completed: isCompleted,
+            sponsorName: sponsorName,
+            isHighlight: isHighlight
           });
         }
       });
 
       // Draw Edges
       renderEdges.forEach(edge => {
+        const gEdge = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.setAttribute("x1", edge.x1);
         line.setAttribute("y1", edge.y1);
         line.setAttribute("x2", edge.x2);
         line.setAttribute("y2", edge.y2);
         line.className.baseVal = edge.completed ? "node-line completed" : "node-line";
-        viewport.appendChild(line);
+        
+        if (edge.isHighlight) {
+          line.style.stroke = "var(--accent-amber)";
+          line.style.strokeWidth = "3px";
+          line.style.filter = "drop-shadow(0 0 6px var(--accent-amber-glow))";
+        }
+        
+        gEdge.appendChild(line);
+        
+        if (edge.sponsorName) {
+           const midX = (edge.x1 + edge.x2) / 2;
+           const midY = (edge.y1 + edge.y2) / 2;
+           
+           // Background rect for readability
+           const textBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+           const txtWidth = 40 + (edge.sponsorName.length * 4);
+           textBg.setAttribute("x", midX - (txtWidth/2));
+           textBg.setAttribute("y", midY - 8);
+           textBg.setAttribute("width", txtWidth);
+           textBg.setAttribute("height", "12");
+           textBg.setAttribute("fill", "var(--bg-primary)");
+           textBg.setAttribute("stroke", "rgba(34, 211, 238, 0.3)");
+           textBg.setAttribute("rx", "3");
+           gEdge.appendChild(textBg);
+
+           const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+           text.setAttribute("x", midX);
+           text.setAttribute("y", midY + 1);
+           text.setAttribute("fill", "var(--accent-cyan)");
+           text.setAttribute("font-size", "7.5px");
+           text.setAttribute("text-anchor", "middle");
+           text.textContent = "แนะนำ: " + edge.sponsorName;
+           gEdge.appendChild(text);
+        }
+        
+        viewport.appendChild(gEdge);
       });
 
       // Draw Nodes
@@ -1457,6 +1525,8 @@
         
         let strokeColor = "rgba(255,255,255,0.15)";
         let fillColor = "var(--bg-secondary)";
+        let strokeWidth = "1.5";
+        let filterAttr = null;
         
         if (posData.completed) {
           strokeColor = "var(--accent-emerald)";
@@ -1468,13 +1538,22 @@
 
         if (posData.index === focusedB1NodeIndex) {
           strokeColor = "var(--accent-indigo)";
-          outerCircle.setAttribute("stroke-width", "2.5");
-        } else {
-          outerCircle.setAttribute("stroke-width", "1.5");
+          strokeWidth = "2.5";
         }
 
+        if (selectedB1NodeIndex !== null && board1Positions[selectedB1NodeIndex]) {
+          const selOwnerId = board1Positions[selectedB1NodeIndex].ownerId;
+          if (posData.ownerId === selOwnerId) {
+             strokeColor = "var(--accent-amber)";
+             strokeWidth = "3";
+             filterAttr = "drop-shadow(0 0 8px var(--accent-amber-glow))";
+          }
+        }
+
+        outerCircle.setAttribute("stroke-width", strokeWidth);
         outerCircle.setAttribute("fill", fillColor);
         outerCircle.setAttribute("stroke", strokeColor);
+        if (filterAttr) outerCircle.setAttribute("filter", filterAttr);
         g.appendChild(outerCircle);
 
         const innerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -1693,9 +1772,11 @@
       if (sponsorId && users.has(sponsorId)) {
         const sponsor = users.get(sponsorId);
         sponsor.wallet += SPONSOR_FEE;
+        sponsor.totalSponsorEarnings = (sponsor.totalSponsorEarnings || 0) + SPONSOR_FEE;
       } else {
         const rootUser = users.get(1);
         rootUser.wallet += SPONSOR_FEE;
+        rootUser.totalSponsorEarnings = (rootUser.totalSponsorEarnings || 0) + SPONSOR_FEE;
       }
 
       // 2. Parent structure fee
@@ -1741,7 +1822,7 @@
                 beneficiary.hasPaidReentry = true;
                 
                 // Add re-entry in Board 1
-                const newB1Index = board1Positions.length;
+                const newB1Index = getNextAvailableB1Index(benUser ? benUser.sponsorId : 1);
                 const rePos = {
                   index: newB1Index,
                   ownerId: beneficiary.ownerId,
@@ -1752,7 +1833,7 @@
                   b2QueueIndex: null,
                   children: []
                 };
-                board1Positions.push(rePos);
+                board1Positions[newB1Index] = rePos;
                 if (benUser) benUser.b1NodesCount++;
 
                 const pB1Idx = Math.floor(newB1Index / 2);
@@ -2014,7 +2095,7 @@
 
         } else {
           beneficiary.hasPaidReentry = true;
-          const newB1Index = getNextAvailableB1Index();
+          const newB1Index = getReentryB1Index(beneficiary.ownerId);
 
           const entry = document.createElement("div");
           entry.className = "log-card log-entry-group";
@@ -2099,14 +2180,23 @@
           sponsorId: sponsorId,
           wallet: 0,
           b1NodesCount: 0,
-          b2NodesCount: 0
+          b2NodesCount: 0,
+          directSponsorCount: 0,
+          totalSponsorEarnings: 0,
+          nextPlacementSide: 'left'
         });
+        
+        if (sponsorId) {
+          const sponsorUser = users.get(sponsorId);
+          if (sponsorUser) sponsorUser.directSponsorCount = (sponsorUser.directSponsorCount || 0) + 1;
+        }
+        
         addLog("success", `ลงทะเบียนรหัสใหม่สำเร็จ: ${name} (ไอดี ${userId}, แนะนำโดย: ${users.get(sponsorId).name})`);
       }
 
       nameInput.value = "";
       
-      const nextB1Index = getNextAvailableB1Index();
+      const nextB1Index = getNextAvailableB1Index(sponsorId);
       pushAction({
         type: "board1_entry",
         userId: userId,
@@ -2134,10 +2224,16 @@
         sponsorId: randomSponsor,
         wallet: 0,
         b1NodesCount: 0,
-        b2NodesCount: 0
+        b2NodesCount: 0,
+        directSponsorCount: 0,
+        totalSponsorEarnings: 0,
+        nextPlacementSide: 'left'
       });
+      
+      const sponsorUser = users.get(randomSponsor);
+      if (sponsorUser) sponsorUser.directSponsorCount = (sponsorUser.directSponsorCount || 0) + 1;
 
-      const nextB1Index = getNextAvailableB1Index();
+      const nextB1Index = getNextAvailableB1Index(randomSponsor);
       pushAction({
         type: "board1_entry",
         userId: userId,
@@ -2189,7 +2285,8 @@
         sponsorId: null,
         wallet: 0,
         b1NodesCount: 0,
-        b2NodesCount: 0
+        b2NodesCount: 0,
+        nextPlacementSide: 'left'
       };
       users.set(admin.id, admin);
 
@@ -2252,6 +2349,9 @@
       `;
       
       document.getElementById("selectedNodeCard").style.display = "block";
+      
+      // Re-render the tree to apply the highlighting to SVG elements
+      renderB1Tree();
     }
 
     document.getElementById("btnSetSponsorFromTree").onclick = () => {
@@ -2399,17 +2499,76 @@
       }, { passive: false });
     }
 
-    // Helper to get the next sequential index in Board 1 without collisions
-    function getNextAvailableB1Index() {
-      let idx = 1;
-      while (true) {
-        const inPositions = idx < board1Positions.length && board1Positions[idx];
-        const inPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === idx));
-        if (!inPositions && !inPending) {
-          return idx;
+    // Helper to get the next placement index based on Sponsor's binary tree logic
+    function getNextAvailableB1Index(sponsorId) {
+      if (!sponsorId) return 1; // Root case (should not really happen for new users)
+      
+      const sponsor = users.get(sponsorId);
+      if (!sponsor) return 1;
+
+      // Find the latest (highest index) position owned by this sponsor in Board 1
+      let latestSponsorB1Index = -1;
+      for (let i = 1; i < board1Positions.length; i++) {
+        if (board1Positions[i] && board1Positions[i].ownerId === sponsorId) {
+          latestSponsorB1Index = i;
         }
-        idx++;
       }
+
+      if (latestSponsorB1Index === -1) {
+        // Fallback if sponsor somehow has no position (e.g. system root)
+        latestSponsorB1Index = 1;
+      }
+
+      let currIdx = latestSponsorB1Index;
+      const side = sponsor.nextPlacementSide || 'left';
+      
+      // Traverse down extreme left or extreme right
+      while (true) {
+        const nextIdx = side === 'left' ? currIdx * 2 : currIdx * 2 + 1;
+        
+        const inPositions = nextIdx < board1Positions.length && board1Positions[nextIdx];
+        const inPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === nextIdx));
+        
+        if (!inPositions && !inPending) {
+          // Toggle placement side for next time
+          sponsor.nextPlacementSide = side === 'left' ? 'right' : 'left';
+          return nextIdx;
+        }
+        currIdx = nextIdx;
+      }
+    }
+
+    // Helper to get the first available empty spot in the user's own tree (Level-Order BFS)
+    function getReentryB1Index(ownerId) {
+      // Find the user's FIRST position in Board 1
+      let rootIdx = 1;
+      for (let i = 1; i < board1Positions.length; i++) {
+        if (board1Positions[i] && board1Positions[i].ownerId === ownerId) {
+          rootIdx = i;
+          break; // Found the very first node they own
+        }
+      }
+
+      // BFS to find the first empty spot
+      let queue = [rootIdx];
+      while (queue.length > 0) {
+        let curr = queue.shift();
+        
+        // Check left child
+        let left = curr * 2;
+        let leftInPositions = left < board1Positions.length && board1Positions[left];
+        let leftInPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === left));
+        if (!leftInPositions && !leftInPending) return left;
+        queue.push(left);
+        
+        // Check right child
+        let right = curr * 2 + 1;
+        let rightInPositions = right < board1Positions.length && board1Positions[right];
+        let rightInPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === right));
+        if (!rightInPositions && !rightInPending) return right;
+        queue.push(right);
+      }
+      return 1; // Fallback, shouldn't reach here since tree is unbounded
     }
 
     if (document.getElementById("newMemberName")) {
