@@ -826,40 +826,47 @@
     /* Mobile Nav Tabs Styles */
     .mobile-nav-tabs {
       display: none;
-      background-color: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      position: sticky;
-      top: 0;
-      z-index: 99;
+      background-color: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border-bright);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
       justify-content: space-around;
-      padding: 0.5rem;
-      gap: 0.25rem;
+      padding: 0.5rem 0.25rem;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     }
     .mobile-nav-btn {
       flex: 1;
-      padding: 0.75rem 0.5rem;
+      padding: 0.25rem;
       background: none;
       border: none;
       color: var(--text-secondary);
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       font-weight: 600;
       cursor: pointer;
-      border-bottom: 2px solid transparent;
       text-align: center;
       transition: all var(--transition-speed);
       white-space: nowrap;
-      min-height: 44px;
+      min-height: 48px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 2px;
     }
     .mobile-nav-btn.active {
       color: var(--accent-cyan);
-      border-bottom-color: var(--accent-cyan);
     }
 
     /* Mobile Responsive Media Queries */
     @media (max-width: 1024px) {
+      body {
+        padding-bottom: 70px;
+      }
+
       .mobile-nav-tabs {
         display: flex;
       }
@@ -883,10 +890,13 @@
       
       /* SVG Tree scrolling */
       .tree-canvas-container {
-        overflow: auto;
-        touch-action: pan-x pan-y;
+        overflow: hidden;
+        touch-action: none;
       }
-      .tree-svg { min-width: 800px; }
+      .tree-svg { 
+        min-width: unset; 
+        touch-action: none;
+      }
       
       /* Log Panel as Modal on Mobile */
       .log-panel {
@@ -1722,7 +1732,10 @@
         
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
         g.className.baseVal = "node-circle";
-        g.onclick = () => selectNodeFromTree(posData.index);
+        g.onclick = (e) => {
+          if (totalDragDist > 10) return;
+          selectNodeFromTree(posData.index);
+        };
         g.ondblclick = (e) => {
           e.stopPropagation();
           focusOnNode(posData.index);
@@ -1876,6 +1889,7 @@
     let startX = 0, startY = 0;
     let translateX = 0, translateY = 0;
     let scale = 1.0;
+    let totalDragDist = 0;
 
     function updateViewportTransform() {
       const viewport = document.getElementById("treeViewport");
@@ -2141,6 +2155,7 @@
         if (sponsorId && users.has(sponsorId)) {
           const sponsor = users.get(sponsorId);
           sponsor.wallet += SPONSOR_FEE;
+          sponsor.totalSponsorEarnings = (sponsor.totalSponsorEarnings || 0) + SPONSOR_FEE;
           sponsorName = sponsor.name;
           // Track sponsor fee earned on that sponsor's own board1 position (first pos of sponsor)
           const sponsorB1Pos = board1Positions.find(p => p && p.ownerId === sponsorId);
@@ -2148,6 +2163,7 @@
         } else {
           const rootUser = users.get(1);
           rootUser.wallet += SPONSOR_FEE;
+          rootUser.totalSponsorEarnings = (rootUser.totalSponsorEarnings || 0) + SPONSOR_FEE;
           // Root gets sponsor fee → credit to root's first position
           if (board1Positions[1]) board1Positions[1].sponsorEarned = (board1Positions[1].sponsorEarned || 0) + SPONSOR_FEE;
         }
@@ -2417,6 +2433,10 @@
 
       // Always auto-run (chkAutoRun element was removed)
       executeNextAction();
+
+      if (window.innerWidth <= 1024) {
+        switchMobileTab('board1');
+      }
     };
 
     // Quick Simulation Random helpers
@@ -2570,6 +2590,9 @@
       if (pos) {
         document.getElementById("memberSponsor").value = pos.ownerId;
         addLog("info", `เลือกผู้แนะนำ (Sponsor) จากรหัสที่คลิก: ${users.get(pos.ownerId).name} (ไอดี ${pos.ownerId})`);
+        if (window.innerWidth <= 1024) {
+          switchMobileTab('sidebar');
+        }
       }
     };
 
@@ -2665,13 +2688,17 @@
         isDragging = true;
         startX = e.clientX - translateX;
         startY = e.clientY - translateY;
+        totalDragDist = 0;
         e.preventDefault(); // Prevent text selection/dragging ghosting
       });
 
       svg.addEventListener("mousemove", (e) => {
         if (!isDragging) return;
-        translateX = e.clientX - startX;
-        translateY = e.clientY - startY;
+        const newTx = e.clientX - startX;
+        const newTy = e.clientY - startY;
+        totalDragDist += Math.hypot(newTx - translateX, newTy - translateY);
+        translateX = newTx;
+        translateY = newTy;
         updateViewportTransform();
       });
 
@@ -2707,6 +2734,90 @@
           document.getElementById("zoomLabel").textContent = Math.round(scale * 100) + "%";
         }
       }, { passive: false });
+
+      // Touch Support for mobile zooming and panning
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let initialScale = 1.0;
+      let initialTranslateX = 0;
+      let initialTranslateY = 0;
+      let initialPinchDist = 0;
+      let isPinching = false;
+      let isTouchDragging = false;
+
+      svg.addEventListener("touchstart", (e) => {
+        totalDragDist = 0;
+        if (e.touches.length === 1) {
+          isTouchDragging = true;
+          isPinching = false;
+          touchStartX = e.touches[0].clientX - translateX;
+          touchStartY = e.touches[0].clientY - translateY;
+        } else if (e.touches.length === 2) {
+          isTouchDragging = false;
+          isPinching = true;
+          initialScale = scale;
+          initialTranslateX = translateX;
+          initialTranslateY = translateY;
+          initialPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          
+          const rect = svg.getBoundingClientRect();
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          touchStartX = midX - rect.left;
+          touchStartY = midY - rect.top;
+        }
+      }, { passive: true });
+
+      svg.addEventListener("touchmove", (e) => {
+        if (isTouchDragging && e.touches.length === 1) {
+          const newTx = e.touches[0].clientX - touchStartX;
+          const newTy = e.touches[0].clientY - touchStartY;
+          totalDragDist += Math.hypot(newTx - translateX, newTy - translateY);
+          translateX = newTx;
+          translateY = newTy;
+          updateViewportTransform();
+          
+          if (e.cancelable) e.preventDefault();
+        } else if (isPinching && e.touches.length === 2) {
+          const currentPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          
+          if (initialPinchDist > 0) {
+            const zoomFactor = currentPinchDist / initialPinchDist;
+            scale = Math.min(Math.max(initialScale * zoomFactor, 0.3), 3.0);
+            
+            const beforeZoomX = (touchStartX - initialTranslateX) / initialScale;
+            const beforeZoomY = (touchStartY - initialTranslateY) / initialScale;
+            
+            translateX = touchStartX - beforeZoomX * scale;
+            translateY = touchStartY - beforeZoomY * scale;
+            
+            updateViewportTransform();
+            
+            const slider = document.getElementById("treeZoomSlider");
+            if (slider) {
+              slider.value = Math.round(scale * 100);
+              document.getElementById("zoomLabel").textContent = Math.round(scale * 100) + "%";
+            }
+          }
+          if (e.cancelable) e.preventDefault();
+        }
+      }, { passive: false });
+
+      svg.addEventListener("touchend", () => {
+        isTouchDragging = false;
+        isPinching = false;
+      });
+
+      svg.addEventListener("touchcancel", () => {
+        isTouchDragging = false;
+        isPinching = false;
+      });
     }
 
     // Helper to get the next placement index based on Sponsor's binary tree logic
