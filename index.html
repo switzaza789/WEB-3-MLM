@@ -2938,9 +2938,9 @@
       const sponsor = users.get(sponsorId);
       if (!sponsor) return 1;
 
-      // Find the sponsor's FIRST position in Board 1 to start searching from
+      // Find the sponsor's LATEST (highest index) position in Board 1 to start searching from
       let rootIdx = 1;
-      for (let i = 1; i < board1Positions.length; i++) {
+      for (let i = board1Positions.length - 1; i >= 1; i--) {
         if (board1Positions[i] && board1Positions[i].ownerId == sponsorId) {
           rootIdx = i;
           break;
@@ -2950,18 +2950,9 @@
       return findFirstAvailableB1Index(rootIdx);
     }
 
-    // Helper to get the first available empty spot in the user's own tree
+    // Helper to get the first available empty spot in the global main tree (root = 1) for Re-entry
     function getReentryB1Index(ownerId) {
-      // Find the user's FIRST position in Board 1
-      let rootIdx = 1;
-      for (let i = 1; i < board1Positions.length; i++) {
-        if (board1Positions[i] && board1Positions[i].ownerId == ownerId) {
-          rootIdx = i;
-          break;
-        }
-      }
-
-      return findFirstAvailableB1Index(rootIdx);
+      return findFirstAvailableB1Index(1);
     }
 
     // Helper to select a node, focus the tree view on it, show details, and navigate on mobile
