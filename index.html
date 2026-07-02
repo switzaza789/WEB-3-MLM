@@ -1069,6 +1069,7 @@
               </div>
               
               <div class="tree-controls">
+                <button id="btnZoomToNode" class="tree-nav-btn" title="ซูมเข้าดูรหัสที่เลือก" disabled>🔍</button>
                 <button id="btnTreeUp" class="tree-nav-btn" title="ขึ้นไปดูรหัส Parent" disabled>↑</button>
                 <button id="btnTreeResetFocus" class="tree-nav-btn" title="กลับไปรหัสสูงสุด">⟲</button>
                 <span style="border-left: 1px solid rgba(255,255,255,0.15); margin: 0 0.25rem; height: 1.25rem; display: inline-block; vertical-align: middle;"></span>
@@ -1120,9 +1121,6 @@
               <div style="display: flex; gap: 0.5rem;">
                 <button id="btnSetSponsorFromTree" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; width: auto;">
                   ใช้รหัสนี้เป็นผู้แนะนำ (Sponsor)
-                </button>
-                <button id="btnZoomToNode" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; width: auto;">
-                  ซูมเข้าดูรหัสนี้
                 </button>
               </div>
             </div>
@@ -1273,6 +1271,8 @@
       totalEarningsSum = 0;
       const undoBtn = document.getElementById("btnUndo");
       if (undoBtn) undoBtn.disabled = true;
+      const zoomBtn = document.getElementById("btnZoomToNode");
+      if (zoomBtn) zoomBtn.disabled = true;
       clearLogs();
 
       // Reset Tree Viewport Pan/Zoom State
@@ -2579,6 +2579,8 @@
       `;
       
       document.getElementById("selectedNodeCard").style.display = "block";
+      const zoomBtn = document.getElementById("btnZoomToNode");
+      if (zoomBtn) zoomBtn.disabled = false;
       
       // Re-render the tree to apply the highlighting to SVG elements
       renderB1Tree();
