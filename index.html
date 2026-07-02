@@ -2913,28 +2913,14 @@
       });
     }
 
-    // Common helper to find first available position under a subtree root index using level-by-level alternating outer-to-inner search
+    // Common helper to find first available position under a subtree root index using level-by-level left-to-right search (top-to-bottom, left-to-right)
     function findFirstAvailableB1Index(rootIdx) {
       let L = 1;
       while (true) {
         let S = rootIdx * Math.pow(2, L);
         let E = (rootIdx + 1) * Math.pow(2, L) - 1;
         
-        let nodesAtLevel = [];
-        let left = S;
-        let right = E;
-        while (left <= right) {
-          if (left === right) {
-            nodesAtLevel.push(left);
-          } else {
-            nodesAtLevel.push(left);
-            nodesAtLevel.push(right);
-          }
-          left++;
-          right--;
-        }
-        
-        for (let idx of nodesAtLevel) {
+        for (let idx = S; idx <= E; idx++) {
           let inPositions = idx < board1Positions.length && board1Positions[idx];
           let inPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === idx));
           if (!inPositions && !inPending) {
