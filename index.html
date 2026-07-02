@@ -511,6 +511,13 @@
       flex-shrink: 0;
       transition: all var(--transition-speed);
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+
+    .queue-card:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+      transform: translateY(-2px);
     }
 
     .queue-card.active {
@@ -1094,30 +1101,36 @@
               <span class="zoom-value" id="zoomLabel">100%</span>
             </div>
 
-            <!-- Selected Node Details -->
-            <div id="selectedNodeCard" class="card" style="margin-top: 1rem; background: rgba(30, 41, 59, 0.4); border-color: rgba(255,255,255,0.05); display: none;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan);">ข้อมูลตำแหน่งผังที่เลือก</span>
-                <span id="selectedNodeIndex" style="font-family: monospace; font-size: 0.8rem; background: var(--bg-primary); padding: 0.1rem 0.4rem; border-radius: 0.25rem;">#1</span>
-              </div>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; font-size: 0.8rem; margin-bottom: 0.75rem;">
-                <div>
-                  <span style="color: var(--text-secondary); display:block; font-size:0.75rem;">ผู้ถือครอง:</span>
-                  <span id="selectedNodeOwner" style="font-weight: 600; display: block; margin-top: 0.2rem;">-</span>
-                </div>
-                <div>
-                  <span style="color: var(--text-secondary); display:block; font-size:0.75rem;">ผู้แนะนำ (Sponsor):</span>
-                  <span id="selectedNodeSponsor" style="font-weight: 600; display: block; margin-top: 0.2rem;">-</span>
-                </div>
-                <div>
-                  <span style="color: var(--text-secondary); display:block; font-size:0.75rem;">ยอดสำรองผัง 1:</span>
-                  <span id="selectedNodeReserve" style="font-weight: 600; color: var(--accent-cyan); display: block; margin-top: 0.2rem;">0.00 USDT</span>
-                </div>
-                <div>
-                  <span style="color: var(--text-secondary); display:block; font-size:0.75rem;">รายได้สะสมจุดนี้:</span>
-                  <span id="selectedNodeEarnings" style="font-weight: 600; color: var(--accent-emerald); display: block; margin-top: 0.2rem; line-height:1.7;">0.00 USDT</span>
-                </div>
-              </div>
+             <!-- Selected Node Details -->
+             <div id="selectedNodeCard" class="card" style="margin-top: 1rem; background: rgba(30, 41, 59, 0.4); border-color: rgba(255,255,255,0.05); display: none;">
+               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                 <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan);">ข้อมูลตำแหน่งผังที่เลือก</span>
+                 <span id="selectedNodeIndex" style="font-family: monospace; font-size: 0.8rem; background: var(--bg-primary); padding: 0.1rem 0.4rem; border-radius: 0.25rem;">#1</span>
+               </div>
+               
+               <!-- Basic details grid -->
+               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.8rem; margin-bottom: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.85rem;">
+                 <div>
+                   <span style="color: var(--text-secondary); display:block; font-size:0.75rem; margin-bottom: 0.2rem;">ผู้ถือครอง:</span>
+                   <span id="selectedNodeOwner" style="font-weight: 600; display: block;">-</span>
+                 </div>
+                 <div>
+                   <span style="color: var(--text-secondary); display:block; font-size:0.75rem; margin-bottom: 0.2rem;">ผู้แนะนำ (Sponsor):</span>
+                   <span id="selectedNodeSponsor" style="font-weight: 600; display: block;">-</span>
+                 </div>
+                 <div>
+                   <span style="color: var(--text-secondary); display:block; font-size:0.75rem; margin-bottom: 0.2rem;">ยอดสำรองผัง 1:</span>
+                   <span id="selectedNodeReserve" style="font-weight: 600; color: var(--accent-cyan); display: block;">0.00 USDT</span>
+                 </div>
+               </div>
+
+               <!-- Earnings Grid -->
+               <div style="margin-bottom: 0.85rem;">
+                 <span style="color: var(--text-secondary); display:block; font-size:0.75rem; margin-bottom: 0.4rem;">รายได้สะสมจุดนี้:</span>
+                 <div id="selectedNodeEarnings" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; font-size: 0.8rem;">
+                   <!-- Rendered dynamically -->
+                 </div>
+               </div>
               <div style="display: flex; gap: 0.5rem;">
                 <button id="btnSetSponsorFromTree" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; width: auto;">
                   ใช้รหัสนี้เป็นผู้แนะนำ (Sponsor)
@@ -1527,6 +1540,11 @@
         card.className = `queue-card`;
         if (idx === activeIndex && !pos.completed) card.classList.add("active");
         if (pos.completed) card.classList.add("completed");
+        
+        card.onclick = () => {
+          const targetIdx = pos.reentryBoard1Index || pos.board1Index;
+          selectAndFocusNode(targetIdx);
+        };
 
         const payoutCashClass = pos.hasPaidCash ? 'paid' : '';
         const reentryClass = pos.hasPaidReentry ? 'reentry' : '';
@@ -1765,11 +1783,17 @@
         }
 
         if (selectedB1NodeIndex !== null && board1Positions[selectedB1NodeIndex]) {
-          const selOwnerId = board1Positions[selectedB1NodeIndex].ownerId;
-          if (posData.ownerId === selOwnerId) {
+          const selNode = board1Positions[selectedB1NodeIndex];
+          const selOwnerId = selNode.ownerId;
+          const selSponsorId = selNode.sponsorId;
+          if (posData.ownerId == selOwnerId) {
              strokeColor = "var(--accent-amber)";
              strokeWidth = "3";
              filterAttr = "drop-shadow(0 0 8px var(--accent-amber-glow))";
+          } else if (selSponsorId && posData.ownerId == selSponsorId) {
+             strokeColor = "#00ff66";
+             strokeWidth = "5";
+             filterAttr = "drop-shadow(0 0 14px rgba(0, 255, 102, 0.95)) drop-shadow(0 0 4px rgba(0, 255, 102, 0.6))";
           }
         }
 
@@ -2047,6 +2071,7 @@
                 
                 // Add re-entry in Board 1
                 const newB1Index = getNextAvailableB1Index(benUser ? benUser.sponsorId : 1);
+                beneficiary.reentryBoard1Index = newB1Index;
                 const rePos = {
                   index: newB1Index,
                   ownerId: beneficiary.ownerId,
@@ -2322,6 +2347,7 @@
         } else {
           beneficiary.hasPaidReentry = true;
           const newB1Index = getReentryB1Index(beneficiary.ownerId);
+          beneficiary.reentryBoard1Index = newB1Index;
 
           const entry = document.createElement("div");
           entry.className = "log-card log-entry-group";
@@ -2491,9 +2517,13 @@
 
 
     document.getElementById("btnReset").onclick = () => {
-      if (confirm("คุณแน่ใจว่าต้องการล้างค่าการจำลองทั้งหมดเพื่อเริ่มใหม่ใช่หรือไม่?")) {
-        init();
-      }
+      showConfirmModal(
+        "ยืนยันการรีเซ็ตระบบ",
+        "คุณแน่ใจว่าต้องการล้างค่าการจำลองทั้งหมดเพื่อเริ่มใหม่ใช่หรือไม่?",
+        () => {
+          init();
+        }
+      );
     };
 
     document.getElementById("btnLoadDemo").onclick = () => {
@@ -2570,12 +2600,23 @@
       
       const earnsElem = document.getElementById("selectedNodeEarnings");
       const earningColor = pos.isReentry ? "#f59e0b" : "var(--accent-emerald)";
-      earnsElem.style.color = earningColor;
       earnsElem.innerHTML = `
-        <span style="display:block; font-size:0.75rem; color:var(--accent-emerald);">ค่าแนะนำ: <b>${(sponsorEarned/100).toFixed(2)} USDT</b></span>
-        <span style="display:block; font-size:0.75rem; color:var(--accent-cyan);">ค่าโครงสร้าง: <b>${(structureEarned/100).toFixed(2)} USDT</b></span>
-        <span style="display:block; font-size:0.75rem; color:var(--accent-indigo);">ผัง 2: <b>${(b2Earned/100).toFixed(2)} USDT</b></span>
-        <span style="display:block; font-size:0.78rem; margin-top:0.25rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.2rem; color:${earningColor}; font-weight:700;">รวม: ${(totalEarned/100).toFixed(2)} USDT</span>
+        <div style="background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 0.375rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column;">
+          <span style="font-size:0.68rem; color:var(--text-secondary); margin-bottom:0.15rem; white-space:nowrap;">ค่าแนะนำ</span>
+          <span style="font-weight:700; color:var(--accent-emerald); font-size:0.8rem; font-family:'JetBrains Mono', monospace;">${(sponsorEarned/100).toFixed(2)}</span>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 0.375rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column;">
+          <span style="font-size:0.68rem; color:var(--text-secondary); margin-bottom:0.15rem; white-space:nowrap;">ค่าโครงสร้าง</span>
+          <span style="font-weight:700; color:var(--accent-cyan); font-size:0.8rem; font-family:'JetBrains Mono', monospace;">${(structureEarned/100).toFixed(2)}</span>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 0.375rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column;">
+          <span style="font-size:0.68rem; color:var(--text-secondary); margin-bottom:0.15rem; white-space:nowrap;">ผัง 2 (FIFO)</span>
+          <span style="font-weight:700; color:var(--accent-indigo); font-size:0.8rem; font-family:'JetBrains Mono', monospace;">${(b2Earned/100).toFixed(2)}</span>
+        </div>
+        <div style="background: rgba(34, 211, 238, 0.08); padding: 0.5rem; border-radius: 0.375rem; border: 1px solid rgba(34, 211, 238, 0.15); display: flex; flex-direction: column;">
+          <span style="font-size:0.68rem; color:var(--text-secondary); margin-bottom:0.15rem; white-space:nowrap; font-weight: 600;">รวมรายได้</span>
+          <span style="font-weight:800; color:${earningColor}; font-size:0.8rem; font-family:'JetBrains Mono', monospace;">${(totalEarned/100).toFixed(2)}</span>
+        </div>
       `;
       
       document.getElementById("selectedNodeCard").style.display = "block";
@@ -2671,15 +2712,65 @@
       undo();
     };
 
-    function showModal(title, text) {
-      document.getElementById("modalHeader").textContent = title;
-      document.getElementById("modalBody").innerHTML = text;
-      document.getElementById("modalOverlay").style.display = "flex";
-    }
+     function showModal(title, text) {
+       document.getElementById("modalHeader").textContent = title;
+       document.getElementById("modalBody").innerHTML = text;
+       
+       const card = document.querySelector(".modal-card");
+       let btnContainer = document.getElementById("modalBtnContainer");
+       if (!btnContainer) {
+         btnContainer = document.createElement("div");
+         btnContainer.id = "modalBtnContainer";
+         btnContainer.style.display = "flex";
+         btnContainer.style.gap = "0.5rem";
+         btnContainer.style.marginTop = "1.5rem";
+         
+         const closeBtn = card.querySelector("button");
+         if (closeBtn) closeBtn.remove();
+         card.appendChild(btnContainer);
+       }
+       
+       btnContainer.innerHTML = `
+         <button class="btn btn-primary" onclick="closeModal()" style="width: 100%;">ปิด</button>
+       `;
+       
+       document.getElementById("modalOverlay").style.display = "flex";
+     }
 
-    function closeModal() {
-      document.getElementById("modalOverlay").style.display = "none";
-    }
+     function showConfirmModal(title, text, onConfirm) {
+       document.getElementById("modalHeader").textContent = title;
+       document.getElementById("modalBody").innerHTML = text;
+       
+       const card = document.querySelector(".modal-card");
+       let btnContainer = document.getElementById("modalBtnContainer");
+       if (!btnContainer) {
+         btnContainer = document.createElement("div");
+         btnContainer.id = "modalBtnContainer";
+         btnContainer.style.display = "flex";
+         btnContainer.style.gap = "0.5rem";
+         btnContainer.style.marginTop = "1.5rem";
+         
+         const closeBtn = card.querySelector("button");
+         if (closeBtn) closeBtn.remove();
+         card.appendChild(btnContainer);
+       }
+       
+       btnContainer.innerHTML = `
+         <button class="btn btn-danger" id="btnConfirmYes" style="flex: 1;">ยืนยัน</button>
+         <button class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">ยกเลิก</button>
+       `;
+       
+       document.getElementById("btnConfirmYes").onclick = () => {
+         closeModal();
+         onConfirm();
+       };
+       
+       document.getElementById("modalOverlay").style.display = "flex";
+     }
+
+     function closeModal() {
+       document.getElementById("modalOverlay").style.display = "none";
+     }
 
     function setupPanZoom() {
       const svg = document.getElementById("treeSvg");
@@ -2822,6 +2913,38 @@
       });
     }
 
+    // Common helper to find first available position under a subtree root index using level-by-level alternating outer-to-inner search
+    function findFirstAvailableB1Index(rootIdx) {
+      let L = 1;
+      while (true) {
+        let S = rootIdx * Math.pow(2, L);
+        let E = (rootIdx + 1) * Math.pow(2, L) - 1;
+        
+        let nodesAtLevel = [];
+        let left = S;
+        let right = E;
+        while (left <= right) {
+          if (left === right) {
+            nodesAtLevel.push(left);
+          } else {
+            nodesAtLevel.push(left);
+            nodesAtLevel.push(right);
+          }
+          left++;
+          right--;
+        }
+        
+        for (let idx of nodesAtLevel) {
+          let inPositions = idx < board1Positions.length && board1Positions[idx];
+          let inPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === idx));
+          if (!inPositions && !inPending) {
+            return idx;
+          }
+        }
+        L++;
+      }
+    }
+
     // Helper to get the next placement index based on Sponsor's binary tree logic
     function getNextAvailableB1Index(sponsorId) {
       if (!sponsorId) return 1; // Root case (should not really happen for new users)
@@ -2829,69 +2952,43 @@
       const sponsor = users.get(sponsorId);
       if (!sponsor) return 1;
 
-      // Find the latest (highest index) position owned by this sponsor in Board 1
-      let latestSponsorB1Index = -1;
+      // Find the sponsor's FIRST position in Board 1 to start searching from
+      let rootIdx = 1;
       for (let i = 1; i < board1Positions.length; i++) {
-        if (board1Positions[i] && board1Positions[i].ownerId === sponsorId) {
-          latestSponsorB1Index = i;
+        if (board1Positions[i] && board1Positions[i].ownerId == sponsorId) {
+          rootIdx = i;
+          break;
         }
       }
 
-      if (latestSponsorB1Index === -1) {
-        // Fallback if sponsor somehow has no position (e.g. system root)
-        latestSponsorB1Index = 1;
-      }
-
-      let currIdx = latestSponsorB1Index;
-      const side = sponsor.nextPlacementSide || 'left';
-      
-      // Traverse down extreme left or extreme right
-      while (true) {
-        const nextIdx = side === 'left' ? currIdx * 2 : currIdx * 2 + 1;
-        
-        const inPositions = nextIdx < board1Positions.length && board1Positions[nextIdx];
-        const inPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === nextIdx));
-        
-        if (!inPositions && !inPending) {
-          // Toggle placement side for next time
-          sponsor.nextPlacementSide = side === 'left' ? 'right' : 'left';
-          return nextIdx;
-        }
-        currIdx = nextIdx;
-      }
+      return findFirstAvailableB1Index(rootIdx);
     }
 
-    // Helper to get the first available empty spot in the user's own tree (Level-Order BFS)
+    // Helper to get the first available empty spot in the user's own tree
     function getReentryB1Index(ownerId) {
       // Find the user's FIRST position in Board 1
       let rootIdx = 1;
       for (let i = 1; i < board1Positions.length; i++) {
-        if (board1Positions[i] && board1Positions[i].ownerId === ownerId) {
+        if (board1Positions[i] && board1Positions[i].ownerId == ownerId) {
           rootIdx = i;
-          break; // Found the very first node they own
+          break;
         }
       }
 
-      // BFS to find the first empty spot
-      let queue = [rootIdx];
-      while (queue.length > 0) {
-        let curr = queue.shift();
-        
-        // Check left child
-        let left = curr * 2;
-        let leftInPositions = left < board1Positions.length && board1Positions[left];
-        let leftInPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === left));
-        if (!leftInPositions && !leftInPending) return left;
-        queue.push(left);
-        
-        // Check right child
-        let right = curr * 2 + 1;
-        let rightInPositions = right < board1Positions.length && board1Positions[right];
-        let rightInPending = pendingActions.some(a => (a.type === "board1_entry" && a.index === right));
-        if (!rightInPositions && !rightInPending) return right;
-        queue.push(right);
+      return findFirstAvailableB1Index(rootIdx);
+    }
+
+    // Helper to select a node, focus the tree view on it, show details, and navigate on mobile
+    function selectAndFocusNode(targetIdx) {
+      if (targetIdx && targetIdx < board1Positions.length && board1Positions[targetIdx]) {
+        focusedB1NodeIndex = targetIdx;
+        selectedB1NodeIndex = targetIdx;
+        refreshUI();
+        selectNodeFromTree(targetIdx);
+        if (window.innerWidth <= 1024) {
+          switchMobileTab('board1');
+        }
       }
-      return 1; // Fallback, shouldn't reach here since tree is unbounded
     }
 
     if (document.getElementById("newMemberName")) {
